@@ -4,8 +4,8 @@ import type { NextConfig } from "next";
 
 /** @type {import('next').NextConfig} */
 const nextConfig = {
-  // REMOVE THIS LINE if it exists
-  // basePath: '/mindwebs-dashboard'
+  basePath: "/mindwebs-dashboard", // <- This is the key part
+  reactStrictMode: true,
 };
 
 module.exports = nextConfig;
