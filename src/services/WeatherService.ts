@@ -1,8 +1,13 @@
-// src/services/WeatherService.ts
 import axios from 'axios';
 import { format } from 'date-fns';
 
 const API_BASE_URL = 'https://archive-api.open-meteo.com/v1/archive';
+
+// Define the structure of expected weather data
+interface WeatherData {
+  time: string[];
+  [key: string]: number[] | string[];
+}
 
 export const weatherService = {
   async fetchPolygonWeatherData(
@@ -10,10 +15,10 @@ export const weatherService = {
     startDate: Date,
     endDate: Date,
     fields: string[]
-  ) {
+  ): Promise<WeatherData> {
     try {
       const center = getPolygonCenter(coordinates);
-      const response = await axios.get(API_BASE_URL, {
+      const response = await axios.get<{ daily: WeatherData }>(API_BASE_URL, {
         params: {
           latitude: center[1],
           longitude: center[0],
@@ -25,15 +30,17 @@ export const weatherService = {
       });
 
       return response.data.daily;
-    } catch (error: any) {
+    } catch (error) {
       if (axios.isAxiosError(error)) {
         console.error('Axios error:', {
           message: error.message,
           status: error.response?.status,
           data: error.response?.data,
         });
+      } else if (error instanceof Error) {
+        console.error('Unexpected error:', error.message);
       } else {
-        console.error('Unexpected error:', error);
+        console.error('Unknown error:', error);
       }
 
       throw new Error('Failed to fetch polygon weather data');
@@ -41,21 +48,24 @@ export const weatherService = {
   },
 
   getValueAtTime(
-    weatherData: Record<string, any>,
+    weatherData: WeatherData,
     date: Date,
-    field: keyof typeof weatherData
+    field: keyof WeatherData
   ): number {
     const dateStr = format(date, 'yyyy-MM-dd');
     const index = weatherData.time?.indexOf(dateStr);
     if (index === -1 || index == null) return NaN;
-    return weatherData[field][index];
+    const values = weatherData[field];
+    return Array.isArray(values) && typeof values[index] === 'number'
+      ? values[index] as number
+      : NaN;
   },
 
   calculateAverageValue(
-    weatherData: Record<string, any>,
+    weatherData: WeatherData,
     startDate: Date,
     endDate: Date,
-    field: keyof typeof weatherData
+    field: keyof WeatherData
   ): number {
     const startStr = format(startDate, 'yyyy-MM-dd');
     const endStr = format(endDate, 'yyyy-MM-dd');
@@ -67,8 +77,9 @@ export const weatherService = {
     if (startIdx === -1 || endIdx === -1 || startIdx > endIdx) return NaN;
 
     const values = weatherData[field].slice(startIdx, endIdx + 1);
-    const sum = values.reduce((acc: number, val: number) => acc + val, 0);
-    return sum / values.length;
+    const numericValues = values.filter((v): v is number => typeof v === 'number');
+    const sum = numericValues.reduce((acc, val) => acc + val, 0);
+    return sum / numericValues.length;
   }
 };
 
