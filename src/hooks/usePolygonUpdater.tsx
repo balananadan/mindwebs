@@ -11,7 +11,6 @@ export const usePolygonUpdater = () => {
     dataSources,
     updatePolygon,
     setIsLoading,
-     setPolygons,
   } = useMapStore();
   
   const updateTimeoutRef = useRef<NodeJS.Timeout | null>(null);
@@ -23,13 +22,11 @@ export const usePolygonUpdater = () => {
       setIsLoading(true);
 
       try {
-        // Update each polygon
         const updatePromises = polygons.map(async (polygon) => {
           const dataSource = dataSources.find(ds => ds.id === polygon.dataSourceId);
           if (!dataSource) return;
 
           try {
-            // Fetch weather data for the polygon's time range
             const startDate = timeRange.mode === 'single' 
               ? subDays(timeRange.start, 1) 
               : timeRange.start;
@@ -44,7 +41,6 @@ export const usePolygonUpdater = () => {
               [dataSource.field]
             );
 
-            // Calculate the value based on time range mode
             let value: number;
             if (timeRange.mode === 'single') {
               value = weatherService.getValueAtTime(
@@ -61,18 +57,15 @@ export const usePolygonUpdater = () => {
               );
             }
 
-            // Apply color rules
             const color = applyColorRules(value, dataSource.colorRules);
 
-            // Update polygon
             updatePolygon(polygon.id, {
-              currentValue: Math.round(value * 100) / 100, // Round to 2 decimal places
+              currentValue: Math.round(value * 100) / 100,
               currentColor: color,
             });
 
           } catch (error) {
             console.error(`Error updating polygon ${polygon.id}:`, error);
-            // Keep existing color on error
           }
         });
 
@@ -84,7 +77,6 @@ export const usePolygonUpdater = () => {
       }
     };
 
-    // Debounce updates to avoid too frequent API calls
     if (updateTimeoutRef.current) {
       clearTimeout(updateTimeoutRef.current);
     }
@@ -98,7 +90,6 @@ export const usePolygonUpdater = () => {
     };
   }, [polygons, timeRange, dataSources, updatePolygon, setIsLoading]);
 
-  // Cleanup on unmount
   useEffect(() => {
     return () => {
       if (updateTimeoutRef.current) {
